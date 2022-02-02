@@ -1,0 +1,95 @@
+CREATE TABLE address (
+	Address_id INTEGER NOT NULL,
+	Address varchar(256),
+	Zip varchar(60),
+	CONSTRAINT address_pk PRIMARY KEY(Address_id)
+	);
+--------------------------
+CREATE TABLE tax_class (
+tax_class_id  INTEGER NOT NULL,
+tax_class_name varchar(10),
+CONSTRAINT tax_class_pk PRIMARY KEY(tax_class_id)
+);
+---------------------------
+CREATE TABLE building_class_constr (
+building_class_constr_id INTEGER NOT NULL,
+building_class_name varchar(2),
+CONSTRAINT building_class_constr_pk PRIMARY KEY(building_class_constr_id)
+);
+---------------------------
+CREATE TABLE building_class_category (
+building_class_category_id INTEGER NOT NULL,
+building_class_category_name varchar(60),
+CONSTRAINT building_class_category_pk PRIMARY KEY(building_class_category_id)
+);
+--------
+CREATE TABLE borough (
+borough_id INTEGER NOT NULL,
+borough_name varchar(100),
+CONSTRAINT borough_pk PRIMARY KEY(borough_id)
+);
+-----------
+CREATE TABLE neighborhood (
+neighborhood_id INTEGER NOT NULL,
+neighborhood varchar(100),
+borough_id INTEGER NOT NULL,
+CONSTRAINT neighborhood_pk PRIMARY KEY(neighborhood_id),
+CONSTRAINT fk_neighborhood_1 FOREIGN KEY (borough_id)
+	  REFERENCES borough (borough_id)
+);
+--------
+CREATE TABLE block (
+Block_id INTEGER NOT NULL,
+block INTEGER NOT NULL,
+neighborhood_id INTEGER NOT NULL,
+CONSTRAINT Block_pk PRIMARY KEY(Block_id),
+CONSTRAINT fk_block_1 FOREIGN KEY (neighborhood_id)
+	  REFERENCES neighborhood (neighborhood_id)
+);
+--------
+CREATE TABLE building (
+	building_id INTEGER NOT NULL,
+	Block_id INTEGER NOT NULL,
+	lot INTEGER NOT NULL,
+	building_class_category_id INTEGER NOT NULL,
+	tax_class_at_present_id INTEGER NOT NULL,
+	building_class_constr_at_present_id INTEGER NOT NULL,
+	easement varchar(64),
+	address_id  INTEGER NOT NULL,
+	apartment_number varchar(10),
+	year_built varchar(4),
+	residential_units INTEGER,
+	commercial_units INTEGER,
+	total_units INTEGER,
+	land_square_feet INTEGER,
+	gross_square_feet INTEGER,
+	CONSTRAINT building_pk PRIMARY KEY(building_id),
+	CONSTRAINT fk_building_1 FOREIGN KEY (Block_id)
+	  REFERENCES Block(Block_id),
+	CONSTRAINT fk_building_2 FOREIGN KEY (tax_class_at_present_id)
+	  REFERENCES tax_class(tax_class_id),
+	CONSTRAINT fk_building_3 FOREIGN KEY (building_class_constr_at_present_id)
+	  REFERENCES building_class_constr(building_class_constr_id),
+	CONSTRAINT fk_building_4 FOREIGN KEY (address_id)
+	  REFERENCES address(address_id),
+	CONSTRAINT fk_building_5 FOREIGN KEY (building_class_category_id)
+	  REFERENCES building_class_category (building_class_category_id)
+	);
+--------------------------
+CREATE TABLE sales (
+	sale_id INTEGER NOT NULL,
+	building_id INTEGER NOT NULL,
+	tax_class_at_time_of_sale_id  INTEGER NOT NULL,
+	building_class_constr_at_time_of_sale_id INTEGER NOT NULL,
+	sale_price varchar(64),
+	sale_date date,
+	CONSTRAINT sale_pk PRIMARY KEY(sale_id),
+	CONSTRAINT fk_sale_1 FOREIGN KEY (building_id)
+	REFERENCES building(building_id),
+	CONSTRAINT fk_sale_2 FOREIGN KEY (tax_class_at_time_of_sale_id)
+	REFERENCES tax_class(tax_class_id),
+		CONSTRAINT fk_sale_3 FOREIGN KEY (building_class_constr_at_time_of_sale_id)
+	REFERENCES building_class_constr(building_class_constr_id)
+) ;
+---------------
+
