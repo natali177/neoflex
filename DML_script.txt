@@ -1,0 +1,257 @@
+--building_class_category
+truncate table building_class_category;
+insert into building_class_category
+(building_class_category_id,building_class_category_code,building_class_category_name)
+select 
+  row_number() over() building_class_category_id,
+  trim(substring(code, '^\S+')) building_class_category_code,
+  regexp_replace(code, '.*?\s', '') building_class_category_name
+from 
+(
+ select 
+   distinct trim(BUILDING_CLASS_CATEGORY)  code  
+ from sales_region 
+   where trim(BUILDING_CLASS_CATEGORY)!= '') tt;
+------------------------------------------------------
+--tax_class--------------------------------------------
+truncate table tax_class;
+insert into tax_class
+( tax_class_id,tax_class_name)
+select 
+  row_number() over() tax_class_id,
+  tax_class_name
+  from
+  ( 
+   select 
+     distinct trim(tax_class_at_present) tax_class_name 
+   from sales_region t
+   )tt  
+     where tax_class_name!=''; 
+------------------------------------------------------
+--building_class_constr-------------------------------
+truncate building_class_constr;
+insert into building_class_constr
+(building_class_constr_id,building_class_name)
+select 
+  row_number() over(),
+  building_class_name
+from
+(
+ select  
+   distinct trim(t.building_class_at_present) building_class_name
+ from sales_region t
+ )tt
+---------------------------------------------------
+--building_class_constr-------------------------------
+truncate table address ;
+insert into address (address_id,address,zip)
+select 
+ row_number() over() id,
+ address,
+ zip_code 
+from 
+(
+  select 
+    distinct trim(address) address, trim(zip_code) zip_code
+   from sales_region t
+) tt
+  where address!='' or zip_code!='';
+-----------------------------------------------------
+--building_class_constr------------------------------
+truncate table borough;
+insert into borough
+(borough_id,borough_name)
+select 
+  borough_id,
+  case 
+    when borough_id = 1 then 'Queens'
+    when borough_id = 2 then 'Bronx'
+    when borough_id = 3 then 'Brooklyn'
+    when borough_id = 4 then 'Manhatan'
+    when borough_id = 5 then 'Statenisland'
+  end borough_name
+FROM
+(     
+ select 
+   (string_to_array(borough_id, '.'))[1]::integer borough_id
+ FROM
+ (
+   select distinct trim(borough) borough_id from sales_region
+  ) t
+ ) tt
+--------------------------------------------------------
+--neighborhood------------------------------------------
+truncate table neighborhood;
+insert into neighborhood (neighborhood_id,neighborhood,borough_id)
+select 
+  row_number() over() id,
+  neighborhood,
+  borough_id
+from 
+(
+select distinct
+  trim(neighborhood) neighborhood, 
+  (string_to_array(trim(borough), '.'))[1]::integer borough_id
+from sales_region
+) t
+--------------------------------------------------------
+--block------------------------------------------
+truncate table block;
+insert into block 
+(block_id,block, neighborhood_id)
+select 
+  row_number() over() id,
+  block,
+  neighborhood_id
+from
+(
+select distinct
+  neighborhood_id, 
+  (string_to_array(trim(borough), '.'))[1]::integer borough_id,
+  (string_to_array(trim(block), '.'))[1]::integer block
+from sales_region s
+inner join neighborhood n
+  on trim(n.neighborhood) = trim(s.neighborhood)
+)t;
+----------------------------------------------------------
+--building------------------------------------------
+truncate table building;
+INSERT INTO building
+(
+  building_id,
+  block_id,
+  lot,
+  building_class_category_id,
+  tax_class_at_present_id,
+  building_class_constr_at_present_id,
+  easement,
+  address_id,
+  apartment_number,
+  year_built,
+  residential_units,
+  commercial_units,
+  total_units,
+  land_square_feet,
+  gross_square_feet
+)
+select 
+  row_number() over() building_id,
+  block_id,
+  lot,
+  building_class_category_id,
+  tax_class_id,
+  building_class_constr_id,
+  ease_ment,
+  address_id,
+  apartment_number,
+  year_built,
+  residential_units,
+  commercial_units,
+  total_units,
+  land_square_feet,
+  gross_square_feet
+from (
+select
+ distinct
+  block.block_id,
+  (string_to_array(trim(s.lot), '.'))[1]::integer lot,
+  bcc.building_class_category_id,
+  tc.tax_class_id,
+  bc_constr.building_class_constr_id,
+  s.ease_ment,
+  address_id,
+  trim(apartment_number) apartment_number,
+  (string_to_array(trim(s.year_built), '.'))[1]::integer year_built,
+  (string_to_array(trim(s.residential_units), '.'))[1]::integer residential_units,
+  (string_to_array(trim(s.commercial_units), '.'))[1]::integer  commercial_units,
+  (string_to_array(trim(s.total_units), '.'))[1]::integer  total_units,
+  (string_to_array(trim(s.land_square_feet), '.'))[1]::integer land_square_feet,
+  (string_to_array(trim(s.gross_square_feet), '.'))[1]::integer gross_square_feet
+from sales_region s
+inner join borough b
+  on (string_to_array(trim(s.borough), '.'))[1]::integer = b.borough_id
+inner join neighborhood n
+  on trim(n.neighborhood) = trim(s.neighborhood)
+inner join block 
+  on block.block = (string_to_array(trim(s.block), '.'))[1]::integer  
+  and n.neighborhood_id = block.neighborhood_id
+inner join building_class_category bcc
+  on trim(substring(s.building_class_category, '^\S+')) = bcc.building_class_category_code
+    and  regexp_replace(trim(s.building_class_category), '.*?\s', '') = bcc.building_class_category_name
+inner join tax_class tc
+  on trim(s.tax_class_at_present)  = tc.tax_class_name
+inner join building_class_constr bc_constr
+  on trim(s.building_class_at_present)  = bc_constr.building_class_name
+inner join address adr
+  on trim(s.address) = adr.address and trim(s.zip_code) = adr.zip
+) t;
+----------------------------------------------------------
+--sales------------------------------------------
+truncate table sales;
+
+with build_t as
+(
+select
+ distinct
+  block.block_id,
+  (string_to_array(trim(s.lot), '.'))[1]::integer lot,
+  bcc.building_class_category_id,
+  tc.tax_class_id,
+  bc_constr.building_class_constr_id,
+  address_id,
+  tax_class_at_time_of_sale,
+  building_class_at_time_of_sale,
+  sale_price,
+  sale_date
+from sales_region s
+inner join borough b
+  on (string_to_array(trim(s.borough), '.'))[1]::integer = b.borough_id
+inner join neighborhood n
+  on trim(n.neighborhood) = trim(s.neighborhood)
+inner join block 
+  on block.block = (string_to_array(trim(s.block), '.'))[1]::integer  
+  and n.neighborhood_id = block.neighborhood_id
+inner join building_class_category bcc
+  on trim(substring(s.building_class_category, '^\S+')) = bcc.building_class_category_code
+    and  regexp_replace(trim(s.building_class_category), '.*?\s', '') = bcc.building_class_category_name
+inner join tax_class tc
+  on trim(s.tax_class_at_present)  = tc.tax_class_name
+inner join building_class_constr bc_constr
+  on trim(s.building_class_at_present)  = bc_constr.building_class_name
+inner join address adr
+  on trim(s.address) = adr.address and trim(s.zip_code) = adr.zip
+)
+
+INSERT INTO sales
+(
+  sale_id,
+  building_id,
+  tax_class_at_time_of_sale_id,
+  building_class_constr_at_time_of_sale_id,
+  sale_price,
+  sale_date
+)
+
+SELECT
+ row_number() over() sale_id,
+ t.*
+from (
+select distinct
+ b.building_id,
+  tc.tax_class_id tax_class_at_time_of_sale_id,
+  bc_constr.building_class_constr_id building_class_constr_at_time_of_sale_id,
+  sale_price,
+  sale_date
+from build_t
+inner join building b
+  on   build_t.block_id = b.block_id 
+  and build_t.lot = b.lot
+  and build_t.building_class_category_id = b.building_class_category_id
+  and build_t.tax_class_id = b.tax_class_at_present_id
+  and build_t.building_class_constr_id = b.building_class_constr_at_present_id
+  and build_t.address_id = b.address_id
+inner join tax_class tc
+  on trim(build_t.tax_class_at_time_of_sale)  = tc.tax_class_name  
+inner join building_class_constr bc_constr
+  on trim(build_t.building_class_at_time_of_sale)  = bc_constr.building_class_name
+ ) t 
